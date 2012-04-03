@@ -14,6 +14,7 @@
    :config-files ["foo.properties" "bar.properties"]})
 
 (def spec-path "rpm/spec.fleet")
+(def init-path "rpm/init.fleet")
 
 (defn- slurp-resource [resource-path]
   (let [loader (.. (Thread/currentThread) getContextClassLoader)]
@@ -21,9 +22,6 @@
 
 (defn- load-template [template-path]
   (fleet [spec] (slurp-resource template-path) {:escaping :bypass}))
-
-(defn- generate-spec [settings]
-  ((load-template spec-path) settings))
 
 (defn- project-to-settings [project]
   (let [settings (get project :iplant-rpm {})]
@@ -35,6 +33,12 @@
            :description (:description project)
            :config-path (:config-path settings))))
 
+(defn gen-file [settings file-name template-name]
+  (spit file-name (str ((load-template template-name) settings))))
+
 (defn iplant-rpm [project]
-  (print (str (generate-spec (project-to-settings project))))
-  (flush))
+  (let [settings (project-to-settings project)
+        init-name (:name settings)
+        spec-name (str (:name settings) ".spec")]
+    (gen-file settings init-name init-path)
+    (gen-file settings spec-name spec-path)))

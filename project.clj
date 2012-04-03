@@ -2,4 +2,6 @@
   :eval-in-leiningen true
   :description "Leiningen Plugin for generating RPMs for Clojure projects."
   :dependencies [[org.clojure/clojure "1.3.0"]
-                 [fleet "0.9.5"]])
+                 [fleet "0.9.5"]]
+  :repositories {"iplantCollaborative"
+                 "http://projects.iplantcollaborative.org/archiva/repository/internal/"})
