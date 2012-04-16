@@ -187,5 +187,6 @@
   (try
     (do (build-rpm project) 0)
     (catch Exception e
-      (warn (.getMessage e))
+      (.printStackTrace e *err*)
+      (flush)
       1)))
