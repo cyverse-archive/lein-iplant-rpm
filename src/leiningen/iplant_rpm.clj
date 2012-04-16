@@ -11,7 +11,7 @@
 ;; The path to various RPM directories.
 (def ^{:private true} rpm-base-dir (file "/usr/src/redhat"))
 (def ^{:private true} rpm-spec-dir (file rpm-base-dir "SPECS"))
-(def ^{:private true} rpm-soruce-dir (file rpm-base-dir "SOURCES"))
+(def ^{:private true} rpm-source-dir (file rpm-base-dir "SOURCES"))
 (def ^{:private true} rpm-build-dir (file rpm-base-dir "BUILD"))
 (def ^{:private true} rpm-dir (file rpm-base-dir "RPMS"))
 
@@ -103,7 +103,7 @@
   [settings]
   (let [spec-name (str (:name settings) ".spec")]
     (gen-file settings spec-name spec-path)
-    (copy (file spec-name) (file rpm-spec-dir spec-name))))
+    spec-name))
 
 (defn- make-build-dir
   "Creates the build directory, which will be used to generate the source
@@ -128,19 +128,36 @@
    for cleanup work."
   [settings]
   (let [build-dir (file (str (:name settings) "-" (:version settings)))
+        tarball-name (str build-dir ".tar.gz")
         init-name (:name settings)]
     (gen-file settings init-name init-path)
     (make-build-dir build-dir settings init-name)
-    (exec "tar" "czvf" (str build-dir ".tar.gz") (.getPath build-dir))
+    (exec "tar" "czvf" tarball-name (.getPath build-dir))
     (rec-delete build-dir)
-    build-dir))
+    [build-dir tarball-name]))
+
+(defn- move
+  "Moves a file to a new location or file name."
+  [src dest]
+  (copy src dest)
+  (.delete dest))
 
 (defn- build-rpm
   "Builds the RPM."
   [prj]
-  (let [settings (project-to-settings prj)]
-    ;;(build-spec-file settings)
-    (build-source-tarball settings)))
+  (let [settings (project-to-settings prj)
+        [source-dir-name tarball-name] (build-source-tarball settings)
+        tarball-file (file tarball-name)
+        tarball-path (file rpm-source-dir tarball-name)
+        spec-file (file (build-spec-file settings))
+        spec-path (file rpm-spec-dir spec-file)
+        rpm-file (file (str source-dir-name (:release settings) ".noarch.rpm"))
+        working-dir (file (System/getProperty "user.dir"))]
+    (copy spec-file spec-path)
+    (move tarball-file tarball-path)
+    (exec "rpmbuild" "-ba" spec-path)
+    (move (file rpm-dir rpm-file) (file working-dir rpm-file))
+    (rec-delete (file rpm-build-dir source-dir-name))))
 
 (defn iplant-rpm
   "Generates the type of RPM that is used by the iPlant Collaborative to
