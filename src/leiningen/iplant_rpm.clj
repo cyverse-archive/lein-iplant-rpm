@@ -43,6 +43,7 @@
 
 (defn- inform
   "Prints an informational message to standard output."
+  [& ms]
   (println (join " " ms))
   (flush))
 
