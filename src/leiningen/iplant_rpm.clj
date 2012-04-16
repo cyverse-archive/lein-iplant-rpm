@@ -14,7 +14,7 @@
 (def ^{:private true} rpm-spec-dir (file rpm-base-dir "SPECS"))
 (def ^{:private true} rpm-source-dir (file rpm-base-dir "SOURCES"))
 (def ^{:private true} rpm-build-dir (file rpm-base-dir "BUILD"))
-(def ^{:private true} rpm-dir (file rpm-base-dir "RPMS"))
+(def ^{:private true} rpm-dir (file rpm-base-dir "RPMS/noarch"))
 
 (defn- slurp-resource
   "Slurps the contents of a resource that can be found relative to a location
@@ -187,7 +187,8 @@
         tarball-path (file rpm-source-dir tarball-name)
         spec-file (file (build-spec-file settings))
         spec-path (file rpm-spec-dir spec-file)
-        rpm-file (file (str source-dir-name (:release settings) ".noarch.rpm"))
+        release (:release settings)
+        rpm-file (file (str source-dir-name "-" release ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
     (inform "Staging files for rpmbuild...")
     (copy spec-file spec-path)

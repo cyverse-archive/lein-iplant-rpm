@@ -32,6 +32,7 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d/
 %build
 unset JAVA_OPTS
 lein deps
+lein compile
 lein uberjar
 
 %install
