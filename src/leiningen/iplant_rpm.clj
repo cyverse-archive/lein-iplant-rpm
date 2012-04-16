@@ -160,10 +160,10 @@
 
 (defn- clean-up-old-files
   "Cleans up any files that may be left over from previous builds."
-  []
   (inform "Cleaning up files from previous builds...")
-  (delete-existing-files working-dir ".rpm")
-  (delete-existing-files working-dir ".tar.gz"))
+  (let [working-dir (file (System/getProperty "user.dir"))]
+    (delete-existing-files working-dir ".rpm")
+    (delete-existing-files working-dir ".tar.gz")))
 
 (defn- build-rpm
   "Builds the RPM."
