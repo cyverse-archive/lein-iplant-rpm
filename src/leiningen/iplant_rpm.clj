@@ -41,6 +41,11 @@
            :version (first (split (:version project) #"-"))
            :description (:description project))))
 
+(defn- inform
+  "Prints an informational message to standard output."
+  (println (join " " ms))
+  (flush))
+
 (defn- warn
   "Prints a warning message to standard error output."
   [& ms]
@@ -131,6 +136,7 @@
   (let [build-dir (file (str (:name settings) "-" (:version settings)))
         tarball-name (str build-dir ".tar.gz")
         init-name (:name settings)]
+    (inform "Building the source tarball...")
     (gen-file settings init-name init-path)
     (make-build-dir build-dir settings init-name)
     (exec "tar" "czvf" tarball-name (.getPath build-dir))
@@ -162,11 +168,15 @@
         spec-path (file rpm-spec-dir spec-file)
         rpm-file (file (str source-dir-name (:release settings) ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
+    (inform "Cleaning up files from previous builds...")
     (delete-existing-files working-dir ".rpm")
     (delete-existing-files working-dir ".tar.gz")
+    (inform "Staging files for rpmbuild...")
     (copy spec-file spec-path)
     (move tarball-file tarball-path)
+    (inform "Running rpmbuild...")
     (exec "rpmbuild" "-ba" spec-path)
+    (inform "Getting generated RPMs and cleaning up...")
     (move (file rpm-dir rpm-file) (file working-dir rpm-file))
     (rec-delete (file rpm-build-dir source-dir-name))))
 
