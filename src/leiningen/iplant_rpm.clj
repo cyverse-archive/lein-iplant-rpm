@@ -2,7 +2,8 @@
   (:use [clojure.java.io :only [file copy reader]]
         [clojure.string :only [join split]]
         [fleet]
-        [leiningen.compile :only [sh]]))
+        [leiningen.compile :only [sh]])
+  (:import [java.io FilenameFilter]))
 
 ;; The paths to the template files, relative to the classpath.
 (def ^{:private true} spec-path "rpm/spec.fleet")
@@ -136,6 +137,14 @@
     (rec-delete build-dir)
     [build-dir tarball-name]))
 
+(defn- delete-existing-files
+  "Deletes existing files in the given directory with the given extension."
+  [dir ext]
+  (let [filt (proxy [FilenameFilter] []
+               (accept [dir filename]
+                       (.endsWith filename ext)))]
+    (dorun (map #(.delete %) (.listFiles dir filt)))))
+
 (defn- move
   "Moves a file to a new location or file name."
   [src dest]
@@ -153,6 +162,8 @@
         spec-path (file rpm-spec-dir spec-file)
         rpm-file (file (str source-dir-name (:release settings) ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
+    (delete-existing-files working-dir ".rpm")
+    (delete-existing-files working-dir ".tar.gz")
     (copy spec-file spec-path)
     (move tarball-file tarball-path)
     (exec "rpmbuild" "-ba" spec-path)
