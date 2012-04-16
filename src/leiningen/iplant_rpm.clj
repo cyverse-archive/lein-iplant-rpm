@@ -158,9 +158,17 @@
   (copy src dest)
   (.delete dest))
 
+(defn- clean-up-old-files
+  "Cleans up any files that may be left over from previous builds."
+  []
+  (inform "Cleaning up files from previous builds...")
+  (delete-existing-files working-dir ".rpm")
+  (delete-existing-files working-dir ".tar.gz"))
+
 (defn- build-rpm
   "Builds the RPM."
   [prj]
+  (clean-up-old-files)
   (let [settings (project-to-settings prj)
         [source-dir-name tarball-name] (build-source-tarball settings)
         tarball-file (file tarball-name)
@@ -169,9 +177,6 @@
         spec-path (file rpm-spec-dir spec-file)
         rpm-file (file (str source-dir-name (:release settings) ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
-    (inform "Cleaning up files from previous builds...")
-    (delete-existing-files working-dir ".rpm")
-    (delete-existing-files working-dir ".tar.gz")
     (inform "Staging files for rpmbuild...")
     (copy spec-file spec-path)
     (move tarball-file tarball-path)
