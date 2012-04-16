@@ -160,6 +160,7 @@
 
 (defn- clean-up-old-files
   "Cleans up any files that may be left over from previous builds."
+  []
   (inform "Cleaning up files from previous builds...")
   (let [working-dir (file (System/getProperty "user.dir"))]
     (delete-existing-files working-dir ".rpm")
