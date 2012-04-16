@@ -16,7 +16,6 @@ License: BSD
 Provides: <(str (spec :provides))>
 <(for [dep (spec :dependencies)] ">Requires: <(str dep)>
 <")>Source0: %{name}-%{version}.tar.gz
-JarVersion: <(str (spec :jar-version))>
 
 %description
 <(str (spec :description))>
@@ -43,7 +42,7 @@ install -d $RPM_BUILD_ROOT/var/log/%{name}/
 install -d $RPM_BUILD_ROOT/etc/%{name}/
 
 install %{name} $RPM_BUILD_ROOT/etc/init.d/
-install %{name}-%{JarVersion}-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/%{name}/
+install %{name}-<(str (spec :jar-version))>-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/%{name}/
 <(for [config (spec :config-files)] ">install <(spec :config-path)>/<(str config)> $RPM_BUILD_ROOT/etc/%{name}/
 <")>
 %post
@@ -75,4 +74,4 @@ rm -r $RPM_BUILD_ROOT
 <(for [config (spec :config-files)] ">%config %attr(0644,iplant,iplant) /etc/%{name}/<(str config)>
 <")>
 %attr(0755,root,root) /etc/init.d/%{name}
-%attr(0644,iplant,iplant) /usr/local/lib/%{name}/%{name}-%{JarVersion}-standalone.jar
+%attr(0644,iplant,iplant) /usr/local/lib/%{name}/%{name}-<(str (spec :jar-version))>-standalone.jar

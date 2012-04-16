@@ -39,7 +39,8 @@
            :description (:description project)
            :jar-version (:version project)
            :version (first (split (:version project) #"-"))
-           :description (:description project))))
+           :description (:description project)
+           :extra-classpath-dirs (:extra-classpath-dirs project))))
 
 (defn- inform
   "Prints an informational message to standard output."
@@ -94,6 +95,15 @@
   [dir fs]
   (dorun (map #(copy-file-or-dir dir %) fs)))
 
+(defn- copy-dir-structure
+  "Copies files or directories to a destination directory, preserving the
+   relative paths of the source files or directories."
+  [dir fs]
+  (dorun (map #(let [dest-dir (.getParentFile (file dir %))]
+                 (mkdirs (.getPath dest-dir))
+                 (rec-copy dest-dir [(file %)]))
+              fs)))
+
 (defn- rec-delete
   "Recursively deletes all files in a directory structure rooted at the given
    directory.  Note that this recursion does consume stack space.  This
@@ -116,10 +126,11 @@
   "Creates the build directory, which will be used to generate the source
    tarball."
   [build-dir settings init-name]
-  (let [config-dir (file (:config-path settings))]
+  (let [config-dir (file (:config-path settings))
+        extra-classpath-dirs (:extra-classpath-dirs settings [])]
     (mkdirs build-dir)
     (rec-copy build-dir (map #(file %) [init-name "project.clj" "src"]))
-    (rec-copy (.getParentFile (file build-dir config-dir)) [config-dir])))
+    (copy-dir-structure build-dir (conj extra-classpath-dirs config-dir))))
 
 (defn- exec
   "Executes a command, throwing an exception if the command fails."
@@ -156,7 +167,7 @@
   "Moves a file to a new location or file name."
   [src dest]
   (copy src dest)
-  (.delete dest))
+  (.delete src))
 
 (defn- clean-up-old-files
   "Cleans up any files that may be left over from previous builds."
@@ -182,7 +193,7 @@
     (copy spec-file spec-path)
     (move tarball-file tarball-path)
     (inform "Running rpmbuild...")
-    (exec "rpmbuild" "-ba" spec-path)
+    (exec "rpmbuild" "-ba" (.getPath spec-path))
     (inform "Getting generated RPMs and cleaning up...")
     (move (file rpm-dir rpm-file) (file working-dir rpm-file))
     (rec-delete (file rpm-build-dir source-dir-name))))
