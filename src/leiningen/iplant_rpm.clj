@@ -39,7 +39,6 @@
            :description (:description project)
            :jar-version (:version project)
            :version (first (split (:version project) #"-"))
-           :description (:description project)
            :extra-classpath-dirs (:extra-classpath-dirs project))))
 
 (defn- inform
