@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # chkconfig: 2345 20 80
-# description: <(str (spec :summary))>
+# description: <(:summary spec)>
 
 . /etc/init.d/functions
 
@@ -10,8 +10,8 @@
 # Change these as needed to run a specific nodejs program.
 ################################################################################
 RUNUSER=iplant
-program=<(str (spec :name))>
-jarfile=<(str (spec :name))>-<(str (spec :jar-version))>-standalone.jar
+program=<(:name spec)>
+jarfile=<(:name spec)>-<(:jar-version spec)>-standalone.jar
 jar=/usr/local/lib/${program}/${jarfile}
 conf=/etc/iplant-services/:/etc/${program}/
 mainclass=${program}.core

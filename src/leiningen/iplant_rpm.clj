@@ -5,9 +5,12 @@
         [leiningen.compile :only [sh]])
   (:import [java.io FilenameFilter]))
 
-;; The paths to the template files, relative to the classpath.
-(def ^{:private true} spec-path "rpm/spec.fleet")
-(def ^{:private true} init-path "rpm/init.fleet")
+;; Templates to use for various project types.
+(def ^{:private true} templates-by-type
+  {:service {:spec "rpm/svc-spec.fleet"
+             :exec "rpm/svc-init.fleet"}
+   :command {:spec "rpm/cmd-spec.fleet"
+             :exec "rpm/cmd-exec.fleet"}})
 
 ;; The path to various RPM directories.
 (def ^{:private true} rpm-base-dir (file "/usr/src/redhat"))
@@ -15,6 +18,24 @@
 (def ^{:private true} rpm-source-dir (file rpm-base-dir "SOURCES"))
 (def ^{:private true} rpm-build-dir (file rpm-base-dir "BUILD"))
 (def ^{:private true} rpm-dir (file rpm-base-dir "RPMS/noarch"))
+
+(defn- inform
+  "Prints an informational message to standard output."
+  [& ms]
+  (println (join " " ms))
+  (flush))
+
+(defn- warn
+  "Prints a warning message to standard error output."
+  [& ms]
+  (binding [*out* *err*]
+    (println (join " " ms))
+    (flush)))
+
+(defn- template-for
+  "Returns the template for the given project type and template type."
+  [project-type template-type]
+  (get-in templates-by-type [project-type template-type]))
 
 (defn- slurp-resource
   "Slurps the contents of a resource that can be found relative to a location
@@ -35,24 +56,34 @@
   [project]
   (let [settings (get project :iplant-rpm {})]
     (assoc settings
+           :summary (:summary settings "")
            :name (:name project)
-           :description (:description project)
-           :jar-version (:version project)
            :version (first (split (:version project) #"-"))
-           :extra-classpath-dirs (:extra-classpath-dirs project))))
+           :release (:release settings 1)
+           :provides (:provides settings (:name project))
+           :type (:type settings :service)
+           :dependencies (:dependencies settings [])
+           :description (:description project "")
+           :jar-version (:version project)
+           :config-files (:config-files settings [])
+           :config-path (:config-path settings)
+           :exe-files (:exe-files settings [])
+           :extra-classpath-dirs (:extra-classpath-dirs project []))))
 
-(defn- inform
-  "Prints an informational message to standard output."
-  [& ms]
-  (println (join " " ms))
-  (flush))
+(defn- validate-settings
+  "Verifies that this plugin can process the project settings."
+  [settings]
+  (when (nil? (get templates-by-type (:type settings)))
+    (throw (Exception. (str "unknown project type: " (:type settings)))))
+  (when (and (seq? (:config-files settings)) (nil? (:config-path settings)))
+    (throw (Exception. (str "config-path is required in projects with "
+                            "configuration files")))))
 
-(defn- warn
-  "Prints a warning message to standard error output."
-  [& ms]
-  (binding [*out* *err*]
-    (println (join " " ms))
-    (flush)))
+(defn- build-and-validate-settings
+  "Builds and validates the settings map for this plugin."
+  [project]
+  (doto (project-to-settings project)
+    validate-settings))
 
 (defn- gen-file
   "Generates a file with the given name using the given template name."
@@ -101,7 +132,7 @@
   (dorun (map #(let [dest-dir (.getParentFile (file dir %))]
                  (mkdirs (.getPath dest-dir))
                  (rec-copy dest-dir [(file %)]))
-              fs)))
+              (filter #(not (nil? %)) fs))))
 
 (defn- rec-delete
   "Recursively deletes all files in a directory structure rooted at the given
@@ -118,18 +149,20 @@
   "Builds the RPM specification file."
   [settings]
   (let [spec-name (str (:name settings) ".spec")]
-    (gen-file settings spec-name spec-path)
+    (gen-file settings spec-name (template-for (:type settings) :spec))
     spec-name))
 
 (defn- make-build-dir
   "Creates the build directory, which will be used to generate the source
    tarball."
-  [build-dir settings init-name]
+  [build-dir settings exec-name]
   (let [config-dir (file (:config-path settings))
-        extra-classpath-dirs (:extra-classpath-dirs settings [])]
+        extra-classpath-dirs (:extra-classpath-dirs settings)
+        exe-files (:exe-files settings)]
     (mkdirs build-dir)
-    (rec-copy build-dir (map #(file %) [init-name "project.clj" "src"]))
-    (copy-dir-structure build-dir (conj extra-classpath-dirs config-dir))))
+    (rec-copy build-dir (map #(file %) [exec-name "project.clj" "src"]))
+    (copy-dir-structure build-dir (conj extra-classpath-dirs config-dir))
+    (copy-dir-structure build-dir exe-files)))
 
 (defn- exec
   "Executes a command, throwing an exception if the command fails."
@@ -144,12 +177,12 @@
    RPM and returns the base name of the generated tarball, which is needed
    for cleanup work."
   [settings]
-  (let [build-dir (file (str (:name settings) "-" (:version settings)))
+  (let [build-dir (file (str (:provides settings) "-" (:version settings)))
         tarball-name (str build-dir ".tar.gz")
-        init-name (:name settings)]
+        exec-name (:name settings)]
     (inform "Building the source tarball...")
-    (gen-file settings init-name init-path)
-    (make-build-dir build-dir settings init-name)
+    (gen-file settings exec-name (template-for (:type settings) :exec))
+    (make-build-dir build-dir settings exec-name)
     (exec "tar" "czvf" tarball-name (.getPath build-dir))
     (rec-delete build-dir)
     [build-dir tarball-name]))
@@ -180,20 +213,20 @@
   "Builds the RPM."
   [prj]
   (clean-up-old-files)
-  (let [settings (project-to-settings prj)
+  (let [settings (build-and-validate-settings prj)
         [source-dir-name tarball-name] (build-source-tarball settings)
         tarball-file (file tarball-name)
         tarball-path (file rpm-source-dir tarball-name)
         spec-file (file (build-spec-file settings))
-        spec-path (file rpm-spec-dir spec-file)
+        spec-dest (file rpm-spec-dir spec-file)
         release (:release settings)
         rpm-file (file (str source-dir-name "-" release ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
     (inform "Staging files for rpmbuild...")
-    (copy spec-file spec-path)
+    (copy spec-file spec-dest)
     (move tarball-file tarball-path)
     (inform "Running rpmbuild...")
-    (exec "rpmbuild" "-ba" (.getPath spec-path))
+    (exec "rpmbuild" "-ba" (.getPath spec-dest))
     (inform "Getting generated RPMs and cleaning up...")
     (move (file rpm-dir rpm-file) (file working-dir rpm-file))
     (rec-delete (file rpm-build-dir source-dir-name))))
