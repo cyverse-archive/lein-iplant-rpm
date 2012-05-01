@@ -46,6 +46,7 @@ to control how the RPM is generated:
                :provides "some name"
                :dependencies ["some-dependency >= some.version"]
                :config-files ["some.file" "someother.file"]
+               :resources ["some.glob.pattern" "someother.glob.pattern"]
                :config-path "conf"}
 ```
 
@@ -173,6 +174,18 @@ This setting contains only the names of the configuration files, not the full
 paths to the files.  This setting is used in conjunction with the
 `:config-path` setting to generate portions of the `%install` and `%files`
 sections of the RPM specification file.
+
+### Resources
+
+Additional resource files can be specified using the `:resources` attribute of
+the `:iplant-rpm` configuration settings.  This setting contains shell glob
+patterns that can be used to install the resource files into the same
+directory as the configuration files for services.  Additional resources are
+not currently supported for command-line utilities.  As with configuration
+files, only the names of the resource files are included on the command line.
+At this time, the plugin assumes that the resource files are in the same
+directory as the configuration files.  This can be changed in the future if
+necessary.
 
 ### Configuration Path
 

@@ -54,7 +54,7 @@
   "Converts a project map to the settings map that we need to fill in the
    templates."
   [project]
-  (let [settings (get project :iplant-rpm {})]
+  (let [settings (:iplant-rpm project {})]
     (assoc settings
            :summary (:summary settings "")
            :name (:name project)
@@ -68,6 +68,7 @@
            :config-files (:config-files settings [])
            :config-path (:config-path settings)
            :exe-files (:exe-files settings [])
+           :resources (:resources settings [])
            :extra-classpath-dirs (:extra-classpath-dirs project []))))
 
 (defn- validate-settings
