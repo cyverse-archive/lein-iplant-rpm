@@ -40,7 +40,7 @@ lein uberjar
 %install
 install -m755 <(:name spec)> $RPM_BUILD_ROOT/usr/local/bin/
 <(for [exe (:exe-files spec)] ">install -m755 <(str exe)> $RPM_BUILD_ROOT/usr/local/bin/
-<")>install -m644 <(:name spec)>-<(:jar-version spec)>-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/<(:name spec)>/
+<")>install -m644 target/<(:name spec)>-<(:jar-version spec)>-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/<(:name spec)>/
 
 %clean
 lein clean
