@@ -1,7 +1,8 @@
 (ns leiningen.iplant-rpm
   (:use [clojure.java.io :only [file copy reader]]
         [clojure.string :only [join split]]
-        [fleet])
+        [fleet]
+        [leiningen.core.eval :only [sh]])
   (:import [java.io FilenameFilter]))
 
 ;; Templates to use for various project types.
@@ -17,38 +18,6 @@
 (def ^{:private true} rpm-source-dir (file rpm-base-dir "SOURCES"))
 (def ^{:private true} rpm-build-dir (file rpm-base-dir "BUILD"))
 (def ^{:private true} rpm-dir (file rpm-base-dir "RPMS/noarch"))
-
-(defn- pump
-  "Pumps data obtained from a reader to an output stream.  Copied shamelessly
-   from leiningen.core.eval/pump."
-  [reader out]
-  (let [buffer (char-array 1024)]
-    (loop [len (.read reader buffer)]
-      (when-not (neg? len)
-        (.write out buffer 0 len)
-        (.flush out)
-        (Thread/sleep 100)
-        (recur (.read reader buffer))))))
-
-(defn- sh
-  "A version of clojure.java.shell/sh that streams out/err.  Copied shamelessly
-   from leiningen.core.eval/sh.  This version of (sh) is being used because
-   clojure.java.shell/sh wasn't calling .destroy on the process, which was
-   preventing this program from exiting in a timely manner.  It's also
-   convenient to be able to stream standard output and standard error output to
-   the user's terminal session.  I decided to copy the code to this location so
-   that this plugin will be compatible with both lein1 and lein2."
-  [& cmd]
-  (let [proc (.exec (Runtime/getRuntime) (into-array cmd))]
-    (.addShutdownHook (Runtime/getRuntime)
-                      (Thread. (fn [] (.destroy proc))))
-    (with-open [out (reader (.getInputStream proc))
-                err (reader (.getErrorStream proc))]
-      (let [pump-out (doto (Thread. #(pump out *out*)) .start)
-            pump-err (doto (Thread. #(pump err *err*)) .start)]
-        (.join pump-out)
-        (.join pump-err))
-      (.waitFor proc))))
 
 (defn- inform
   "Prints an informational message to standard output."
