@@ -32,9 +32,9 @@ mkdir -p $RPM_BUILD_ROOT/usr/local/lib/<(:name spec)>
 
 %build
 unset JAVA_OPTS
-lein deps
-lein compile
-lein uberjar
+lein2 deps
+lein2 compile
+lein2 uberjar
 
 
 %install
@@ -43,7 +43,7 @@ install -m755 <(:name spec)> $RPM_BUILD_ROOT/usr/local/bin/
 <")>install -m644 target/<(:name spec)>-<(:jar-version spec)>-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/<(:name spec)>/
 
 %clean
-lein clean
+lein2 clean
 rm -r lib/*
 rm -r $RPM_BUILD_ROOT
 
