@@ -64,7 +64,6 @@ fi
 
 %clean
 lein2 clean
-rm -r target/*
 rm -r $RPM_BUILD_ROOT
 
 %files

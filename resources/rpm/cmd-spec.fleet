@@ -44,7 +44,6 @@ install -m755 <(:name spec)> $RPM_BUILD_ROOT/usr/local/bin/
 
 %clean
 lein2 clean
-rm -r target/*
 rm -r $RPM_BUILD_ROOT
 
 %files
