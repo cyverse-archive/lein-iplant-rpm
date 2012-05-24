@@ -1,4 +1,4 @@
-(defproject org.iplantc/lein-iplant-rpm "1.2.0-SNAPSHOT"
+(defproject org.iplantc/lein-iplant-rpm "1.2.1-SNAPSHOT"
   :eval-in-leiningen true
   :description "Leiningen Plugin for generating RPMs for Clojure projects."
   :dependencies [[org.clojure/clojure "1.4.0"]

@@ -1,8 +1,9 @@
 (ns leiningen.iplant-rpm
   (:use [clojure.java.io :only [file copy reader]]
-        [clojure.string :only [join split]]
+        [clojure.pprint :only [pprint]]
         [fleet]
         [leiningen.core.eval :only [sh]])
+  (:require [clojure.string :as string])
   (:import [java.io FilenameFilter]))
 
 ;; Templates to use for various project types.
@@ -22,14 +23,14 @@
 (defn- inform
   "Prints an informational message to standard output."
   [& ms]
-  (println (join " " ms))
+  (println (string/join " " ms))
   (flush))
 
 (defn- warn
   "Prints a warning message to standard error output."
   [& ms]
   (binding [*out* *err*]
-    (println (join " " ms))
+    (println (string/join " " ms))
     (flush)))
 
 (defn- template-for
@@ -50,6 +51,15 @@
   [template-path]
   (fleet [spec] (slurp-resource template-path) {:escaping :bypass}))
 
+(defn- to-relative
+  "Converts canonical absolute paths that refer to subdirectories of the
+   current working directory to relative paths."
+  [paths]
+  (let [file-sep (System/getProperty "file.separator")
+        working-dir (str (System/getProperty "user.dir") file-sep)]
+    (doto (map #(string/replace % (re-pattern (str "^\\Q" working-dir))  "") paths)
+      (pprint))))
+
 (defn- project-to-settings
   "Converts a project map to the settings map that we need to fill in the
    templates."
@@ -58,7 +68,7 @@
     (assoc settings
            :summary (:summary settings "")
            :name (:name project)
-           :version (first (split (:version project) #"-"))
+           :version (first (string/split (:version project) #"-"))
            :release (:release settings 1)
            :provides (:provides settings (:name project))
            :type (:type settings :service)
@@ -68,8 +78,7 @@
            :config-files (:config-files settings [])
            :config-path (:config-path settings)
            :exe-files (:exe-files settings [])
-           :resources (:resources settings [])
-           :extra-classpath-dirs (:extra-classpath-dirs project []))))
+           :resource-paths (to-relative (:resource-paths project [])))))
 
 (defn- validate-settings
   "Verifies that this plugin can process the project settings."
@@ -113,10 +122,11 @@
 (defn- copy-file-or-dir
   "Copies either a file or a directory."
   [dir f]
-  (let [dest (file dir (.getName f))]
-    (cond (.isFile f) (copy f dest)
-          (.isDirectory f) (copy-dir dest f)
-          :else (throw (Exception. "unrecognized file type")))))
+  (when (.exists f)
+    (let [dest (file dir (.getName f))]
+      (cond (.isFile f) (copy f dest)
+            (.isDirectory f) (copy-dir dest f)
+            :else (throw (Exception. "unrecognized file type"))))))
 
 (defn- rec-copy
   "Performs a recursive copy of one or more files.  Note that recursion does
@@ -158,11 +168,11 @@
    tarball."
   [build-dir settings exec-name]
   (let [config-dir (file (:config-path settings))
-        extra-classpath-dirs (:extra-classpath-dirs settings)
+        resource-paths (:resource-paths settings)
         exe-files (:exe-files settings)]
     (mkdirs build-dir)
     (rec-copy build-dir (map #(file %) [exec-name "project.clj" "src"]))
-    (copy-dir-structure build-dir (conj extra-classpath-dirs config-dir))
+    (copy-dir-structure build-dir (conj resource-paths config-dir))
     (copy-dir-structure build-dir exe-files)))
 
 (defn- exec
@@ -170,7 +180,7 @@
   [& args]
   (let [status (apply sh args)]
     (when (not= status 0)
-      (let [cmd (join " " args)]
+      (let [cmd (string/join " " args)]
         (throw (Exception. (str cmd " failed with status " status)))))))
 
 (defn- build-source-tarball
@@ -212,7 +222,7 @@
 
 (defn- build-rpm
   "Builds the RPM."
-  [prj]
+  [prj args]
   (clean-up-old-files)
   (let [settings (build-and-validate-settings prj)
         [source-dir-name tarball-name] (build-source-tarball settings)
@@ -223,21 +233,22 @@
         release (:release settings)
         rpm-file (file (str source-dir-name "-" release ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
-    (inform "Staging files for rpmbuild...")
-    (copy spec-file spec-dest)
-    (move tarball-file tarball-path)
-    (inform "Running rpmbuild...")
-    (exec "rpmbuild" "-ba" (.getPath spec-dest))
-    (inform "Getting generated RPMs and cleaning up...")
-    (move (file rpm-dir rpm-file) (file working-dir rpm-file))
-    (rec-delete (file rpm-build-dir source-dir-name))))
+    (when-not (args :dry-run)
+      (inform "Staging files for rpmbuild...")
+      (copy spec-file spec-dest)
+      (move tarball-file tarball-path)
+      (inform "Running rpmbuild...")
+      (exec "rpmbuild" "-ba" (.getPath spec-dest))
+      (inform "Getting generated RPMs and cleaning up...")
+      (move (file rpm-dir rpm-file) (file working-dir rpm-file))
+      (rec-delete (file rpm-build-dir source-dir-name)))))
 
 (defn iplant-rpm
   "Generates the type of RPM that is used by the iPlant Collaborative to
    distribute web services written in Clojure."
-  [project]
+  [project & args]
   (try
-    (do (build-rpm project) 0)
+    (do (build-rpm project (set (map keyword args))) 0)
     (catch Exception e
       (.printStackTrace e *err*)
       (flush)
