@@ -50,4 +50,4 @@ rm -r $RPM_BUILD_ROOT
 %defattr(0764,iplant,iplant)
 %attr(0775, iplant,iplant) /usr/local/bin/<(:name spec)>
 <(for [exe (:exe-files spec)] ">%attr(0775, iplant,iplant) /usr/local/bin/<(str exe)>
-<")>%attr(0644, iplant,iplant) /usr/local/lib/<(:name spec)>/<(:name spec)>-<(:jar-version spec)>-standalone.jar
+<")>%attr(0644, iplant,iplant) /usr/local/lib/<(:name spec)>/target/<(:name spec)>-<(:jar-version spec)>-standalone.jar
