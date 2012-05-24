@@ -76,4 +76,4 @@ rm -r $RPM_BUILD_ROOT
 <(for [config (:config-files spec)] ">%config %attr(0644,iplant,iplant) /etc/<(:name spec)>/<(str config)>
 <")>
 %attr(0755,root,root) /etc/init.d/<(:name spec)>
-%attr(0644,iplant,iplant) /usr/local/lib/<(:name spec)>/target/<(:name spec)>-<(:jar-version spec)>-standalone.jar
+%attr(0644,iplant,iplant) /usr/local/lib/<(:name spec)>/<(:name spec)>-<(:jar-version spec)>-standalone.jar
