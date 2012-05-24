@@ -78,7 +78,8 @@
            :config-files (:config-files settings [])
            :config-path (:config-path settings)
            :exe-files (:exe-files settings [])
-           :resource-paths (to-relative (:resource-paths project [])))))
+           :resource-paths (to-relative (:resource-paths project []))
+           :main (string/replace (:main project) "-" "_"))))
 
 (defn- validate-settings
   "Verifies that this plugin can process the project settings."

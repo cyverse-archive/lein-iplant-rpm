@@ -14,7 +14,7 @@ program=<(:name spec)>
 jarfile=<(:name spec)>-<(:jar-version spec)>-standalone.jar
 jar=/usr/local/lib/${program}/${jarfile}
 conf=/etc/iplant-services/:/etc/${program}/
-mainclass=${program/-/_}.core
+mainclass=<(:main spec)>
 
 ################################################################################
 
