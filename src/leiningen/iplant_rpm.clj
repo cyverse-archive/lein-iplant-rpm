@@ -69,7 +69,6 @@
            :summary (:summary settings "")
            :name (:name project)
            :version (first (string/split (:version project) #"-"))
-           :release (:release settings 1)
            :provides (:provides settings (:name project))
            :type (:type settings :service)
            :dependencies (:dependencies settings [])
@@ -221,9 +220,16 @@
     (delete-existing-files working-dir ".rpm")
     (delete-existing-files working-dir ".tar.gz")))
 
+(defn- validate-release
+  "Validates the release number, which must be a positive integer."
+  [release]
+  (when-not (re-matches #"\d+" release)
+    (throw (Exception. (str "invalid release number: " release)))))
+
 (defn- build-rpm
   "Builds the RPM."
-  [prj args]
+  [prj release args]
+  (validate-release release)
   (clean-up-old-files)
   (let [settings (build-and-validate-settings prj)
         [source-dir-name tarball-name] (build-source-tarball settings)
@@ -231,7 +237,6 @@
         tarball-path (file rpm-source-dir tarball-name)
         spec-file (file (build-spec-file settings))
         spec-dest (file rpm-spec-dir spec-file)
-        release (:release settings)
         rpm-file (file (str source-dir-name "-" release ".noarch.rpm"))
         working-dir (file (System/getProperty "user.dir"))]
     (when-not (args :dry-run)
@@ -247,9 +252,9 @@
 (defn iplant-rpm
   "Generates the type of RPM that is used by the iPlant Collaborative to
    distribute web services written in Clojure."
-  [project & args]
+  [project release & args]
   (try
-    (do (build-rpm project (set (map keyword args))) 0)
+    (do (build-rpm project release (set (map keyword args))) 0)
     (catch Exception e
       (.printStackTrace e *err*)
       (flush)
