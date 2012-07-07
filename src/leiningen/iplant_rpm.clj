@@ -63,12 +63,13 @@
 (defn- project-to-settings
   "Converts a project map to the settings map that we need to fill in the
    templates."
-  [project]
+  [project release]
   (let [settings (:iplant-rpm project {})]
     (assoc settings
            :summary (:summary settings "")
            :name (:name project)
            :version (first (string/split (:version project) #"-"))
+           :release release
            :provides (:provides settings (:name project))
            :type (:type settings :service)
            :dependencies (:dependencies settings [])
@@ -91,8 +92,8 @@
 
 (defn- build-and-validate-settings
   "Builds and validates the settings map for this plugin."
-  [project]
-  (doto (project-to-settings project)
+  [project release]
+  (doto (project-to-settings project release)
     validate-settings))
 
 (defn- gen-file
@@ -231,7 +232,7 @@
   [prj release args]
   (validate-release release)
   (clean-up-old-files)
-  (let [settings (build-and-validate-settings prj)
+  (let [settings (build-and-validate-settings prj release)
         [source-dir-name tarball-name] (build-source-tarball settings)
         tarball-file (file tarball-name)
         tarball-path (file rpm-source-dir tarball-name)
