@@ -9,7 +9,7 @@
 # Specific script configuration
 # Change these as needed to run a specific nodejs program.
 ################################################################################
-RUNUSER=iplant
+RUNUSER=<(:runuser spec)>
 program=<(:name spec)>
 jarfile=<(:name spec)>-<(:jar-version spec)>-standalone.jar
 jar=/usr/local/lib/${program}/${jarfile}

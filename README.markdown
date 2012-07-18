@@ -211,6 +211,13 @@ This setting is obtained directly from the `:extra-classpath-dirs` setting in
 init.d script, but it is used to determine if any additional directories need
 to be included in the source tarball.
 
+### Account Used to Run Services
+
+This configuration setting, which is obtained from the `:runuser` attribute of
+the `:iplant-rpm` configuration settings, is used to specify the username that
+should be used when running the service.  If this setting is not specified
+then the username will be set to `iplant`.
+
 ## Known Issues
 
 Leiningen 2 no longer supports the `:extra-classpath-dirs` option.  Instead, it

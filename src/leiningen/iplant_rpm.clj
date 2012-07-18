@@ -78,6 +78,7 @@
            :config-files (:config-files settings [])
            :config-path (:config-path settings)
            :exe-files (:exe-files settings [])
+           :runuser (:runuser settings "iplant")
            :resource-paths (to-relative (:resource-paths project []))
            :main (string/replace (:main project) "-" "_"))))
 
