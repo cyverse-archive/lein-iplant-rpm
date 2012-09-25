@@ -2,6 +2,7 @@
   (:use [clojure.java.io :only [file copy reader]]
         [clojure.pprint :only [pprint]]
         [fleet]
+        [leiningen.core.main :only [abort *exit-process?*]]
         [leiningen.core.eval :only [sh]])
   (:require [clojure.string :as string])
   (:import [java.io FilenameFilter]))
@@ -256,8 +257,9 @@
    distribute web services written in Clojure."
   [project release & args]
   (try
-    (do (build-rpm project release (set (map keyword args))) 0)
+    (build-rpm project release (set (map keyword args)))
     (catch Exception e
       (.printStackTrace e *err*)
       (flush)
-      1)))
+      (binding [*exit-process?* true]
+        (abort)))))
