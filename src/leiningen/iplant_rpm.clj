@@ -2,17 +2,22 @@
   (:use [clojure.java.io :only [file copy reader]]
         [clojure.pprint :only [pprint]]
         [fleet]
+        [leiningen.core.classpath :only [add-repo-auth get-proxy-settings]]
         [leiningen.core.main :only [abort *exit-process?*]]
         [leiningen.core.eval :only [sh]])
-  (:require [clojure.string :as string])
-  (:import [java.io FilenameFilter]))
+  (:require [cemerick.pomegranate.aether :as aether]
+            [clojure.string :as string])
+  (:import [java.io FilenameFilter]
+           [java.net UnknownHostException]))
 
 ;; Templates to use for various project types.
 (def ^{:private true} templates-by-type
   {:service {:spec "rpm/svc-spec.fleet"
              :exec "rpm/svc-init.fleet"}
    :command {:spec "rpm/cmd-spec.fleet"
-             :exec "rpm/cmd-exec.fleet"}})
+             :exec "rpm/cmd-exec.fleet"}
+   :jetty   {:spec "rpm/jetty-spec.fleet"
+             :exec "rpm/jetty-init.fleet"}})
 
 ;; The path to various RPM directories.
 (def ^{:private true} rpm-base-dir (file "/usr/src/redhat"))
@@ -61,27 +66,90 @@
     (doto (map #(string/replace % (re-pattern (str "^\\Q" working-dir))  "") paths)
       (pprint))))
 
+(defn- update-policies
+  "Fills in the update policies in a repository definition."
+  [update checksum [repo-name opts]]
+  [repo-name (assoc opts
+               :update   (or update :daily)
+               :checksum (or checksum :fail))])
+
+(defn- repository-defs
+  "Extract the repository definitions from a project."
+  [{:keys [repositories update checksum]}]
+  (->> repositories
+       (map add-repo-auth)
+       (map (partial update-policies update checksum))))
+
+;; TODO: determine if there's a way to omit transitive dependencies.
+(defn- resolve-dependencies
+  "Resolves dependencies for a project."
+  [project]
+  (try
+    (aether/resolve-dependencies
+     :local-repo   (:local-repo project)
+     :offline?     (:offline? project)
+     :repositories (repository-defs project)
+     :coordinates  (:dependencies project)
+     :mirrors      (:mirrors project)
+     :proxy        (get-proxy-settings))
+    (catch UnknownHostException e
+      (if-not (:offline? project)
+        (resolve-dependencies (assoc project :offline? true))
+        (throw e)))))
+
+(defn- dependency-files
+  "Obtains a list of dependency files for a project."
+  [project]
+  (aether/dependency-files (resolve-dependencies project)))
+
+(defn- find-file
+  "Finds a file name matching a regular expression in a sequence of file names."
+  [re msg names]
+  (let [f (first (filter (partial re-matches re) names))]
+    (when-not f
+      (throw (Exception. msg)))
+    f))
+
+(def ^:private find-jetty-runner
+  (partial find-file #"jetty-runner-.*[.]jar"
+           "A jetty-runner dependency is required for :jetty projects"))
+
+(def ^:private find-war-file
+  (partial find-file #".*[.]war"
+           "A WAR file dependency is required for :jetty projects"))
+
 (defn- project-to-settings
   "Converts a project map to the settings map that we need to fill in the
    templates."
   [project release]
-  (let [settings (:iplant-rpm project {})]
+  (let [settings  (:iplant-rpm project {})
+        type      (:type settings :service)
+        jetty?    (= type :jetty)
+        dep-files (when jetty? (dependency-files project))
+        dep-names (when jetty? (map #(.getName %) dep-files))
+        main      (:main project)]
     (assoc settings
-           :summary (:summary settings "")
-           :name (:name project)
-           :version (first (string/split (:version project) #"-"))
-           :release release
-           :provides (:provides settings (:name project))
-           :type (:type settings :service)
-           :dependencies (:dependencies settings [])
-           :description (:description project "")
-           :jar-version (:version project)
-           :config-files (:config-files settings [])
-           :config-path (:config-path settings)
-           :exe-files (:exe-files settings [])
-           :runuser (:runuser settings "iplant")
+           :summary        (:summary settings "")
+           :name           (:name project)
+           :version        (first (string/split (:version project) #"-"))
+           :release        release
+           :provides       (:provides settings (:name project))
+           :type           type
+           :include-deps   (= type :jetty)
+           :dependencies   (:dependencies settings [])
+           :description    (:description project "")
+           :jar-version    (:version project)
+           :config-files   (:config-files settings [])
+           :config-path    (:config-path settings)
+           :exe-files      (:exe-files settings [])
+           :runuser        (:runuser settings "iplant")
            :resource-paths (to-relative (:resource-paths project []))
-           :main (string/replace (:main project) "-" "_"))))
+           :main           (when main (string/replace main "-" "_"))
+           :repositories   (:repositories project)
+           :lein-dep-files dep-files
+           :lein-deps      dep-names
+           :jetty-runner   (when jetty? (find-jetty-runner dep-names))
+           :war-file       (when jetty? (find-war-file dep-names)))))
 
 (defn- validate-settings
   "Verifies that this plugin can process the project settings."
@@ -109,9 +177,9 @@
   [dir]
   (let [f (file dir)]
     (if (.exists f)
-      (when (not (.isDirectory f))
+      (when-not (.isDirectory f)
         (throw (Exception. (str dir " exists and is not a directory"))))
-      (when (not (.mkdirs f))
+      (when-not (.mkdirs f)
         (throw (Exception. (str "unable to create " dir)))))))
 
 (declare rec-copy)
@@ -127,9 +195,9 @@
   [dir f]
   (when (.exists f)
     (let [dest (file dir (.getName f))]
-      (cond (.isFile f) (copy f dest)
+      (cond (.isFile f)      (copy f dest)
             (.isDirectory f) (copy-dir dest f)
-            :else (throw (Exception. "unrecognized file type"))))))
+            :else (throw     (Exception. "unrecognized file type"))))))
 
 (defn- rec-copy
   "Performs a recursive copy of one or more files.  Note that recursion does
@@ -156,7 +224,7 @@
    long for the OS to support."
   [f]
   (when (.isDirectory f)
-    (dorun (map #(rec-delete %) (.listFiles f))))
+    (dorun (map rec-delete (.listFiles f))))
   (.delete f))
 
 (defn- build-spec-file
@@ -170,13 +238,17 @@
   "Creates the build directory, which will be used to generate the source
    tarball."
   [build-dir settings exec-name]
-  (let [config-dir (file (:config-path settings))
+  (let [config-dir     (file (:config-path settings))
         resource-paths (:resource-paths settings)
-        exe-files (:exe-files settings)]
+        exe-files      (:exe-files settings)
+        type           (:type settings)
+        lein-dep-files (:lein-dep-files settings)]
     (mkdirs build-dir)
-    (rec-copy build-dir (map #(file %) [exec-name "project.clj" "src"]))
+    (rec-copy build-dir (map file [exec-name "project.clj" "src"]))
     (copy-dir-structure build-dir (conj resource-paths config-dir))
-    (copy-dir-structure build-dir exe-files)))
+    (copy-dir-structure build-dir exe-files)
+    (when (= type :jetty)
+      (dorun (map (partial copy build-dir) lein-dep-files)))))
 
 (defn- exec
   "Executes a command, throwing an exception if the command fails."
@@ -191,9 +263,9 @@
    RPM and returns the base name of the generated tarball, which is needed
    for cleanup work."
   [settings]
-  (let [build-dir (file (str (:provides settings) "-" (:version settings)))
+  (let [build-dir    (file (str (:provides settings) "-" (:version settings)))
         tarball-name (str build-dir ".tar.gz")
-        exec-name (:name settings)]
+        exec-name    (:name settings)]
     (inform "Building the source tarball...")
     (gen-file settings exec-name (template-for (:type settings) :exec))
     (make-build-dir build-dir settings exec-name)
@@ -229,18 +301,23 @@
   (when-not (re-matches #"\d+" release)
     (throw (Exception. (str "invalid release number: " release)))))
 
+(defn- rpm-filename
+  "Determines the name of the resulting RPM file."
+  [source-dir release]
+  (file (str source-dir "-" release ".noarch.rpm")))
+
 (defn- build-rpm
   "Builds the RPM."
   [prj release args]
   (validate-release release)
   (clean-up-old-files)
-  (let [settings (build-and-validate-settings prj release)
-        [source-dir-name tarball-name] (build-source-tarball settings)
-        tarball-file (file tarball-name)
-        tarball-path (file rpm-source-dir tarball-name)
-        spec-file (file (build-spec-file settings))
-        spec-dest (file rpm-spec-dir spec-file)
-        rpm-file (file (str source-dir-name "-" release ".noarch.rpm"))
+  (let [settings                  (build-and-validate-settings prj release)
+        [source-dir tarball-name] (build-source-tarball settings)
+        tarball-file              (file tarball-name)
+        tarball-path              (file rpm-source-dir tarball-name)
+        spec-file                 (file (build-spec-file settings))
+        spec-dest                 (file rpm-spec-dir spec-file)
+        rpm-file                  (file (rpm-filename source-dir release))
         working-dir (file (System/getProperty "user.dir"))]
     (when-not (args :dry-run)
       (inform "Staging files for rpmbuild...")
@@ -250,7 +327,7 @@
       (exec "rpmbuild" "-ba" (.getPath spec-dest))
       (inform "Getting generated RPMs and cleaning up...")
       (move (file rpm-dir rpm-file) (file working-dir rpm-file))
-      (rec-delete (file rpm-build-dir source-dir-name)))))
+      (rec-delete (file rpm-build-dir source-dir)))))
 
 (defn iplant-rpm
   "Generates the type of RPM that is used by the iPlant Collaborative to
