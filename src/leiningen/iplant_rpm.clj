@@ -5,7 +5,7 @@
         [leiningen.core.classpath :only [add-repo-auth get-proxy-settings]]
         [leiningen.core.main :only [abort *exit-process?*]]
         [leiningen.core.eval :only [sh]])
-  (:require [cemerick.pomegranate.aether :as aether]
+  (:require [leiningen.iplant.aether :as aether]
             [clojure.string :as string])
   (:import [java.io FilenameFilter]
            [java.net UnknownHostException]))
@@ -63,8 +63,7 @@
   [paths]
   (let [file-sep (System/getProperty "file.separator")
         working-dir (str (System/getProperty "user.dir") file-sep)]
-    (doto (map #(string/replace % (re-pattern (str "^\\Q" working-dir))  "") paths)
-      (pprint))))
+    (map #(string/replace % (re-pattern (str "^\\Q" working-dir))  "") paths)))
 
 (defn- update-policies
   "Fills in the update policies in a repository definition."
@@ -80,12 +79,11 @@
        (map add-repo-auth)
        (map (partial update-policies update checksum))))
 
-;; TODO: determine if there's a way to omit transitive dependencies.
-(defn- resolve-dependencies
-  "Resolves dependencies for a project."
+(defn- dependency-files
+  "Resolves only the direct dependencies for a project."
   [project]
   (try
-    (aether/resolve-dependencies
+    (aether/resolve-direct-dependencies
      :local-repo   (:local-repo project)
      :offline?     (:offline? project)
      :repositories (repository-defs project)
@@ -94,13 +92,8 @@
      :proxy        (get-proxy-settings))
     (catch UnknownHostException e
       (if-not (:offline? project)
-        (resolve-dependencies (assoc project :offline? true))
+        (dependency-files (assoc project :offline? true))
         (throw e)))))
-
-(defn- dependency-files
-  "Obtains a list of dependency files for a project."
-  [project]
-  (aether/dependency-files (resolve-dependencies project)))
 
 (defn- find-file
   "Finds a file name matching a regular expression in a sequence of file names."
@@ -214,7 +207,7 @@
   (dorun (map #(let [dest-dir (.getParentFile (file dir %))]
                  (mkdirs (.getPath dest-dir))
                  (rec-copy dest-dir [(file %)]))
-              (filter #(not (nil? %)) fs))))
+              (remove nil? fs))))
 
 (defn- rec-delete
   "Recursively deletes all files in a directory structure rooted at the given
@@ -248,7 +241,7 @@
     (copy-dir-structure build-dir (conj resource-paths config-dir))
     (copy-dir-structure build-dir exe-files)
     (when (= type :jetty)
-      (dorun (map (partial copy build-dir) lein-dep-files)))))
+      (rec-copy build-dir lein-dep-files))))
 
 (defn- exec
   "Executes a command, throwing an exception if the command fails."
