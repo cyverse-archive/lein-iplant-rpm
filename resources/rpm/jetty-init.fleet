@@ -30,7 +30,7 @@ RETVAL=0
 ################################################################################
 # Generic commands
 ################################################################################
-out_file="--out <(:name spec)>.yyyy_mm_dd.log"
+out_file="--out ${logdir}/<(:name spec)>.yyyy_mm_dd.log"
 start_cmd="nohup java -cp ${conf} ${out_file} -jar ${jar} ${war}"
 
 start () {
