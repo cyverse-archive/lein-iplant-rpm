@@ -27,9 +27,15 @@ lockfile=/var/lock/subsys/$program
 logdir=/var/log/$program
 RETVAL=0
 
+################################################################################
+# Generic commands
+################################################################################
+out_file="--out <(:name spec)>.yyyy_mm_dd.log"
+start_cmd="nohup java -cp ${conf} ${out_file} -jar ${jar} ${war}"
+
 start () {
     echo -n $"Starting $program: "
-    runuser -m -s /bin/bash -l $RUNUSER -c "nohup java -cp .:${conf} -jar ${jar} ${war}" < /dev/null &> ${logdir}/launch.log &
+    runuser -m -s /bin/bash -l $RUNUSER -c "$start_cmd" < /dev/null &> ${logdir}/launch.log &
     RETVAL=$?
     echo $! > ${pidfile}
 
