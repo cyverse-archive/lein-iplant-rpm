@@ -34,7 +34,7 @@ RETVAL=0
 start () {
     echo -n $"Starting $program: "
     out_file="--out ${logdir}/${program}.yyyy_mm_dd.log"
-    port=$(clavin get-props --host localhost -s ${program} ${program}.app.listen-port)
+    port=$(/usr/local/bin/clavin get-props --host localhost -s ${program} ${program}.app.listen-port)
     start_cmd="nohup java -cp ${conf} -jar ${jar} --port ${port} ${out_file} ${war}"
     runuser -m -s /bin/bash -l $RUNUSER -c "$start_cmd" < /dev/null &> ${logdir}/launch.log &
     RETVAL=$?
