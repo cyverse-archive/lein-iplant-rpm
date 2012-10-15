@@ -15,7 +15,8 @@ jetty_runner_jar=<(:jetty-runner spec)>
 war_file=<(:war-file spec)>
 jar=/usr/local/lib/${program}/${jetty_runner_jar}
 war=/usr/local/lib/${program}/${war_file}
-conf=/etc/iplant-services/:/etc/${program}/
+conf=/etc/${program}/
+cp=/etc/iplant-services/:${conf}
 
 ################################################################################
 
@@ -35,8 +36,9 @@ RETVAL=0
 start () {
     echo -n $"Starting $program: "
     out_file="--out ${logdir}/${program}.yyyy_mm_dd.log"
+    classes="--classes ${conf}"
     port=$(/usr/local/bin/clavin get-props -s ${service} ${service}.app.listen-port)
-    start_cmd="nohup java -cp ${conf} -jar ${jar} --port ${port} ${out_file} ${war}"
+    start_cmd="nohup java -cp ${cp} -jar ${jar} --port ${port} ${out_file} ${classes} ${war}"
     runuser -m -s /bin/bash -l $RUNUSER -c "$start_cmd" < /dev/null &> ${logdir}/launch.log &
     RETVAL=$?
     echo $! > ${pidfile}
