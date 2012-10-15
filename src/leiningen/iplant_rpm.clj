@@ -157,7 +157,8 @@
            :lein-dep-files dep-files
            :lein-deps      dep-names
            :jetty-runner   (when jetty? (find-jetty-runner dep-names))
-           :war-file       (when jetty? (find-war-file dep-names)))))
+           :war-file       (when jetty? (find-war-file dep-names))
+           :zk-service     (:zk-service settings (:name project)))))
 
 (defn- validate-settings
   "Verifies that this plugin can process the project settings."
