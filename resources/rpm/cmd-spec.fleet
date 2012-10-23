@@ -22,7 +22,7 @@ Provides: <(:provides spec)>
 
 %pre
 getent group iplant > /dev/null || groupadd -r iplant
-getent passwd iplant > /dev/null || useradd -r -g iplant -d /home/iplant -s /bin/bash -c "User for the iPlant services." iplant
+getent passwd iplant > /dev/null || useradd -r -g iplant -md /home/iplant -s /bin/bash -c "User for the iPlant services." iplant
 exit 0
 
 %prep

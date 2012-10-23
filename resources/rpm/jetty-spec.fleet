@@ -22,7 +22,7 @@ Provides: <(:provides spec)>
 
 %pre
 getent group <(:runuser spec)> > /dev/null || groupadd -r <(:runuser spec)>
-getent passwd <(:runuser spec)> > /dev/null || useradd -r -g <(:runuser spec)> -d /home/<(:runuser spec)> -s /bin/bash -c "User for the <(:runuser spec)> services." <(:runuser spec)>
+getent passwd <(:runuser spec)> > /dev/null || useradd -r -g <(:runuser spec)> -md /home/<(:runuser spec)> -s /bin/bash -c "User for the <(:runuser spec)> services." <(:runuser spec)>
 exit 0
 
 %prep
