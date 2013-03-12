@@ -31,7 +31,7 @@ RETVAL=0
 
 start () {
     echo -n $"Starting $program: "
-    runuser -m -s /bin/bash $RUNUSER -c "nohup java -cp .:${conf}:${jar} ${mainclass}" < /dev/null &> ${logdir}/launch.log &
+    runuser -m -s /bin/bash $RUNUSER -c "nohup java -cp .:${conf}:${jar} ${mainclass} < /dev/null &> ${logdir}/launch.log &" 
     RETVAL=$?
     echo $! > ${pidfile}
 
