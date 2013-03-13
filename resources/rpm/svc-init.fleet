@@ -23,31 +23,109 @@ mainclass=<(:main spec)>
 # None of these should need to be changed to execute a nodejs script unless 
 # there is specific configuration that is needed for the script.
 ################################################################################ 
-piddir=/var/run/$program
-pidfile=/var/run/$program/$program.pid
-lockfile=/var/lock/subsys/$program
-logdir=/var/log/$program
+readonly piddir=/var/run/$program
+readonly logdir=/var/log/$program
+readonly SH=/bin/bash
+readonly CLAVIN=/usr/local/bin/clavin
+
 RETVAL=0
 
-start () {
-    echo -n $"Starting $program: "
-    runuser -m -s /bin/bash $RUNUSER -c "nohup java -cp .:${conf}:${jar} ${mainclass} < /dev/null &> ${logdir}/launch.log &" 
-    RETVAL=$?
-    echo $! > ${pidfile}
 
-    [ $RETVAL = 0 ] && success && touch ${lockfile}
-    [ $RETVAL -ne 0 ] && failure
+name_instance() {
+	root="$1"
+
+	if [ $# -gt 1] && [ -n $2 ]
+	then
+		instance=$2
+		echo "${root}-$instance"
+	else
+		echo "$root"
+	fi
+}
+
+mk_inst_disp_name() {
+	name_instance "$program" $*
+}
+
+mk_launch_log() {
+	name="$(name_instance launch $*)"
+	echo "$logdir/${name}.log"
+}
+
+mk_lockfile() {
+	name="$(name_instance '$program' $*)"	
+	echo "/var/lock/subsys/${name}.lock"
+}
+
+mk_pidfile() {
+	name="$(name_instance '$program' $*)"	
+	echo "$piddir/${name}.pid"
+}
+
+id_instance() {
+	pidname="$1"
+
+	echo "$pidfile" | sed 's/^'"$program"'\([0-9]*\).pid$/\1/'
+}
+
+start_instance() {
+	name="$(mk_inst_disp_name $*)"
+	launch_log="$(mk_launch_log $*)"
+	lockfile="$(mk_lockfile $*)"
+	pidfile="$(mk_pidfile $*)"
+	
+    echo -n $"Starting $name: "
+	launch_log="$logdir/$(name_instance launch).pid"    
+    cmd="nohup java -cp .:${conf}:$jar $mainclass < /dev/null &> $launch_log &" 
+    runuser -m -s "$SH" -c "$cmd" $RUNUSER
+    inst_ret_val=$?
+    echo $! > "$pidfile"
+
+    [ $inst_ret_val = 0 ] && success && touch "$lockfile"
+    [ $inst_ret_val != 0 ] && failure
     echo
+    
+    return $inst_ret_val
+}
 
-    return $RETVAL
+start () {
+	echo -n $"Starting $program: "
+	num_instances=$($CLAVIN get-props -s "$program" "$program".num-instances)
+	RETVAL=$?
+	
+	if [$RETVAL != 0] 
+	then
+		return
+	fi
+	
+	echo -e "\r"
+	
+	if [ -z $num_instances ] 
+	then
+		start_instance
+		RETVAL=$?
+	else
+		for instance in $(seq $num_instances)
+		do
+			start_instance $instance
+			inst_ret_val=$?
+			[ $inst_ret_val != 0 ] RETVAL=$inst_ret_val
+		done
+    fi
 }
 
 stop () {
-    echo -n $"Stopping $program: "
-    killproc -p ${pidfile}
-    RETVAL=$?
-    echo
-    [ $RETVAL = 0 ] && rm -rf ${lockfile} ${pidfile}
+    for pidfile in $(ls "$piddir")
+    do
+    	instance=$(id_instance "$pidfile")
+    	name=$(mk_inst_disp_name $instance)
+    	echo -n $"Stopping $name: "
+    	killproc -p "$pidfile"
+    	inst_retval=$?
+    	[ $inst_retval = 0 ] && rm -rf "$(mk_lockfile $instance)" "$pidfile")
+    	[ $inst_retval != 0 ] && RETVAL=$inst_retval
+    	echo
+	done
 }
 
 restart () {
@@ -64,7 +142,11 @@ force_reload () {
 }
 
 showstatus () {
-    status -p ${pidfile} ${program}
+	for pidfile in $(ls "$piddir")
+	do
+		instance=$(id_instance "$pidfile")
+    	status -p "$pidfile" "$(mk_inst_disp_name $instance)"
+    done
 }
 
 showstatus_q () {
