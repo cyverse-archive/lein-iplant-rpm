@@ -113,7 +113,7 @@ start () {
 	do
 	    start_instance $instance
 	    inst_ret_val=$?
-	    [ $inst_ret_val != 0 ] RETVAL=$inst_ret_val
+	    [ $inst_ret_val != 0 ] && RETVAL=$inst_ret_val
 	done
     fi
 }
