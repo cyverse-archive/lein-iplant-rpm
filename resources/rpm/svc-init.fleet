@@ -65,17 +65,23 @@ mk_pidfile() {
 id_instance() {
 	pidname="$1"
 
-	echo "$pidfile" | sed 's/^'"$program"'\([0-9]*\).pid$/\1/'
+	echo "$pidfile" | sed 's/^'"$program"'-\{0,1\}\([0-9]*\).pid$/\1/'
 }
 
 start_instance() {
-    name="$(mk_inst_disp_name $*)"
-    launch_log="$(mk_launch_log $*)"
-    lockfile="$(mk_lockfile $*)"
-    pidfile="$(mk_pidfile $*)"
-	
-    echo -n "Starting $name: "
-    cmd="nohup java -cp .:${conf}:$jar $mainclass < /dev/null &> $launch_log & echo \$! > $pidfile" 
+    if [ $# -gt 0 ] && [ -n $1 ]
+    then
+        id=$1
+        opts="-D${program}.id=$id"
+    fi
+
+    name="$(mk_inst_disp_name $id)"
+    launch_log="$(mk_launch_log $id)"
+    lockfile="$(mk_lockfile $id)"
+    pidfile="$(mk_pidfile $id)"
+
+    echo -n $"Starting $name: "
+    cmd="nohup java -cp .:${conf}:$jar $opts $mainclass < /dev/null &> $launch_log & echo \$! > $pidfile"
     runuser -m -s "$SH" -c "$cmd" $RUNUSER
     inst_ret_val=$?
 
