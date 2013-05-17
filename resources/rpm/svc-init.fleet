@@ -80,7 +80,7 @@ start_instance() {
     lockfile="$(mk_lockfile $id)"
     pidfile="$(mk_pidfile $id)"
 
-    rm -f $launch_log
+    rm -f $launch_log || failure "unable to remove $launch_log"
 
     echo -n $"Starting $name: "
     cmd="nohup java -cp .:${conf}:$jar $opts $mainclass < /dev/null &> $launch_log & echo \$! > $pidfile"
