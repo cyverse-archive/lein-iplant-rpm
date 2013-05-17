@@ -20,9 +20,9 @@ mainclass=<(:main spec)>
 
 ################################################################################
 # Generic paths
-# None of these should need to be changed to execute a nodejs script unless 
+# None of these should need to be changed to execute a nodejs script unless
 # there is specific configuration that is needed for the script.
-################################################################################ 
+################################################################################
 readonly piddir=/var/run/$program
 readonly logdir=/var/log/$program
 readonly SH=/bin/bash
@@ -53,12 +53,12 @@ mk_launch_log() {
 }
 
 mk_lockfile() {
-    name=$(name_instance "$program" $*)	
+    name=$(name_instance "$program" $*)
     echo "/var/lock/subsys/$name"
 }
 
 mk_pidfile() {
-    name=$(name_instance "$program" $*)	
+    name=$(name_instance "$program" $*)
     echo "$piddir/${name}.pid"
 }
 
@@ -80,6 +80,8 @@ start_instance() {
     lockfile="$(mk_lockfile $id)"
     pidfile="$(mk_pidfile $id)"
 
+    rm -f $launch_log
+
     echo -n $"Starting $name: "
     cmd="nohup java -cp .:${conf}:$jar $opts $mainclass < /dev/null &> $launch_log & echo \$! > $pidfile"
     runuser -m -s "$SH" -c "$cmd" $RUNUSER
@@ -88,7 +90,7 @@ start_instance() {
     [ $inst_ret_val = 0 ] && success && touch "$lockfile"
     [ $inst_ret_val != 0 ] && failure
     echo
-    
+
     return $inst_ret_val
 }
 
@@ -96,15 +98,15 @@ start () {
     echo -n "Starting $program: "
     num_instances=$($CLAVIN get-props -s "$program" "$program".num-instances)
     RETVAL=$?
-	
-    if [ $RETVAL != 0 ] 
+
+    if [ $RETVAL != 0 ]
     then
         return
     fi
-	
+
     echo -ne "\r"
-	
-    if [ -z $num_instances ] 
+
+    if [ -z $num_instances ]
     then
 	start_instance
 	RETVAL=$?
@@ -138,11 +140,11 @@ restart () {
 }
 
 reload () {
-    restart 
+    restart
 }
 
 force_reload () {
-    restart 
+    restart
 }
 
 showstatus () {
@@ -161,11 +163,11 @@ case "$1" in
     start)
         start
     ;;
-    
+
     stop)
         stop
     ;;
-    
+
     restart)
         restart
     ;;
@@ -177,7 +179,7 @@ case "$1" in
     force-reload)
         force_reload
     ;;
-    
+
     status)
         showstatus
     ;;
@@ -186,7 +188,7 @@ case "$1" in
         showstatus_q || exit 0
         restart
     ;;
-    
+
     *)
         echo "Usage: $program {start|stop|restart|reload|force-reload|status|condrestart|try-restart}"
         exit 1
