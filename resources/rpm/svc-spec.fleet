@@ -44,7 +44,8 @@ install -d $RPM_BUILD_ROOT/etc/<(:name spec)>/
 
 install <(:name spec)> $RPM_BUILD_ROOT/etc/init.d/
 install target/<(:name spec)>-<(:jar-version spec)>-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/<(:name spec)>/
-<(for [config (:config-files spec)] ">install <(:config-path spec)>/<(str config)> $RPM_BUILD_ROOT/etc/<(:name spec)>/
+<(for [exe (:exe-files spec)] ">install -m755 <(str exe)> $RPM_BUILD_ROOT/usr/local/bin/
+<")><(for [config (:config-files spec)] ">install <(:config-path spec)>/<(str config)> $RPM_BUILD_ROOT/etc/<(:name spec)>/
 <")><(for [resource (:resources spec)] ">install <(:config-path spec)>/<(str resource)> $RPM_BUILD_ROOT/etc/<(:name spec)>/
 <")>
 
