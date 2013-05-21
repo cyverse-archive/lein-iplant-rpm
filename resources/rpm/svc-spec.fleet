@@ -75,7 +75,7 @@ rm -r $RPM_BUILD_ROOT
 %attr(-,<(:runuser spec)>,<(:runuser spec)>) /var/log/<(:name spec)>/
 %attr(-,<(:runuser spec)>,<(:runuser spec)>) /etc/<(:name spec)>/
 
-<(for [exe (:exe-files spec)] ">%attr(0775, iplant,iplant) /usr/local/bin/<(str exe)>
+<(for [exe (:exe-files spec)] ">%attr(0775, iplant,iplant) /usr/local/bin/<(.getName (clojure.java.io/file exe))>
 <")><(for [config (:config-files spec)] ">%config %attr(0644,<(:runuser spec)>,<(:runuser spec)>) /etc/<(:name spec)>/<(str config)>
 <")>
 %attr(0755,root,root) /etc/init.d/<(:name spec)>
