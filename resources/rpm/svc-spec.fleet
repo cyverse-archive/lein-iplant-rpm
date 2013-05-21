@@ -36,6 +36,7 @@ lein2 compile
 lein2 uberjar
 
 %install
+install -d $RPM_BUILD_ROOT/usr/local/bin/
 install -d $RPM_BUILD_ROOT/usr/local/lib/<(:name spec)>/
 install -d $RPM_BUILD_ROOT/var/run/<(:name spec)>/
 install -d $RPM_BUILD_ROOT/var/lock/subsys/<(:name spec)>/
@@ -74,7 +75,8 @@ rm -r $RPM_BUILD_ROOT
 %attr(-,<(:runuser spec)>,<(:runuser spec)>) /var/log/<(:name spec)>/
 %attr(-,<(:runuser spec)>,<(:runuser spec)>) /etc/<(:name spec)>/
 
-<(for [config (:config-files spec)] ">%config %attr(0644,<(:runuser spec)>,<(:runuser spec)>) /etc/<(:name spec)>/<(str config)>
+<(for [exe (:exe-files spec)] ">%attr(0775, iplant,iplant) /usr/local/bin/<(str exe)>
+<")><(for [config (:config-files spec)] ">%config %attr(0644,<(:runuser spec)>,<(:runuser spec)>) /etc/<(:name spec)>/<(str config)>
 <")>
 %attr(0755,root,root) /etc/init.d/<(:name spec)>
 %attr(0644,<(:runuser spec)>,<(:runuser spec)>) /usr/local/lib/<(:name spec)>/<(:name spec)>-<(:jar-version spec)>-standalone.jar
