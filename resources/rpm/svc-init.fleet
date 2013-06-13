@@ -83,7 +83,7 @@ start_instance() {
     rm -f $launch_log || failure "unable to remove $launch_log"
 
     echo -n $"Starting $name: "
-    cmd="nohup java -cp .:${conf}:$jar $opts $mainclass < /dev/null &> $launch_log & echo \$! > $pidfile"
+    cmd="cd / && nohup java -cp .:${conf}:$jar $opts $mainclass < /dev/null &> $launch_log & echo \$! > $pidfile"
     runuser -m -s "$SH" -c "$cmd" $RUNUSER
     inst_ret_val=$?
 
